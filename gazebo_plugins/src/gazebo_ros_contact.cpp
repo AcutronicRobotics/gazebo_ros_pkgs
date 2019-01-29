@@ -47,6 +47,8 @@ public:
   /// \param[in] _world_name The world's name
   void OnWorldCreated(const std::string & _world_name);
 
+  void Callback();
+
   void PublishContacts(ConstContactsPtr &_msg);
 
   /// \brief World pointer from Gazebo.
@@ -63,6 +65,10 @@ public:
 
   /// To be notified once the world is created.
   gazebo::event::ConnectionPtr world_created_connection_;
+
+  /// Connection to world update event, called at every iteration
+  gazebo::event::ConnectionPtr world_update_event_;
+
 };
 
 GazeboRosContact::GazeboRosContact()
@@ -92,6 +98,10 @@ void GazeboRosContact::Load(int  argc , char **  argv )
 
   impl_->world_created_connection_ = gazebo::event::Events::ConnectWorldCreated(
     std::bind(&GazeboRosContactPrivate::OnWorldCreated, impl_.get(), std::placeholders::_1));
+
+  impl_->world_update_event_ = gazebo::event::Events::ConnectWorldUpdateBegin(
+    std::bind(&GazeboRosContactPrivate::Callback, impl_.get()));
+
 }
 
 void GazeboRosContactPrivate::OnWorldCreated(const std::string & _world_name)
@@ -101,18 +111,19 @@ void GazeboRosContactPrivate::OnWorldCreated(const std::string & _world_name)
 
   world_ = gazebo::physics::get_world();
 
-  // ROS transport
-  //ros_node_ = gazebo_ros::Node::Get();
-
   // Gazebo transport
   gz_node_ = gazebo::transport::NodePtr(new gazebo::transport::Node());
   gz_node_->Init(_world_name);
+}
 
-  // Listen to Gazebo world_stats topic
-  gazebo::transport::SubscriberPtr sub = gz_node_->Subscribe(
+// Function is called everytime a message is received.
+void GazeboRosContactPrivate::Callback()
+{
+  gz_node_->Subscribe(
     "/gazebo/default/physics/contacts",
     &GazeboRosContactPrivate::PublishContacts, this);
 }
+
 
 // Function is called everytime a message is received.
 void GazeboRosContactPrivate::PublishContacts(ConstContactsPtr &_msg)
