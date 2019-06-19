@@ -24,22 +24,32 @@
 
 using namespace std::literals::chrono_literals; // NOLINT
 
-class GazeboRosDiffDriveTest : public gazebo::ServerFixture
+class GazeboRosTricycleDriveTest : public gazebo::ServerFixture
 {
 };
 
-TEST_F(GazeboRosDiffDriveTest, Publishing)
+TEST_F(GazeboRosTricycleDriveTest, Publishing)
 {
   // Load test world and start paused
-  this->Load("worlds/gazebo_ros_diff_drive.world", true);
+  this->Load("worlds/gazebo_ros_tricycle_drive.world", true);
 
   // World
   auto world = gazebo::physics::get_world();
   ASSERT_NE(nullptr, world);
 
   // Model
-  auto vehicle = world->ModelByName("vehicle");
-  ASSERT_NE(nullptr, vehicle);
+  auto tricycle = world->ModelByName("tricycle");
+  ASSERT_NE(nullptr, tricycle);
+
+  // Step a bit for model to settle
+  world->Step(100);
+
+  // Check model state
+  EXPECT_NEAR(0.0, tricycle->WorldPose().Pos().X(), tol);
+  EXPECT_NEAR(0.0, tricycle->WorldPose().Pos().Y(), tol);
+  EXPECT_NEAR(0.0, tricycle->WorldPose().Rot().Yaw(), tol);
+  EXPECT_NEAR(0.0, tricycle->WorldLinearVel().X(), tol);
+  EXPECT_NEAR(0.0, tricycle->WorldAngularVel().Z(), tol);
 
   // Create node and executor
   auto node = std::make_shared<rclcpp::Node>("gazebo_ros_diff_drive_test");
@@ -56,49 +66,33 @@ TEST_F(GazeboRosDiffDriveTest, Publishing)
       latestMsg = _msg;
     });
 
-  // Step a bit for model to settle
-  world->Step(100);
-  executor.spin_once(100ms);
-
-  // Check model state
-  EXPECT_NEAR(0.0, vehicle->WorldPose().Pos().X(), tol);
-  EXPECT_NEAR(0.0, vehicle->WorldPose().Pos().Y(), tol);
-  EXPECT_NEAR(0.0, vehicle->WorldPose().Rot().Yaw(), tol);
-  EXPECT_NEAR(0.0, vehicle->WorldLinearVel().X(), tol);
-  EXPECT_NEAR(0.0, vehicle->WorldAngularVel().Z(), tol);
-
   // Send command
   auto pub = node->create_publisher<geometry_msgs::msg::Twist>(
     "test/cmd_test", rclcpp::QoS(rclcpp::KeepLast(1)));
 
   auto msg = geometry_msgs::msg::Twist();
-  msg.linear.x = 1.0;
-  msg.angular.z = 0.1;
-  pub->publish(msg);
+  msg.linear.x = 0.5;
+  msg.angular.z = 0.05;
 
-  // Wait for it to be processed
-  int sleep{0};
-  int maxSleep{300};
-  for (; sleep < maxSleep && (vehicle->WorldLinearVel().X() < 0.9 ||
-    vehicle->WorldAngularVel().Z() < 0.09); ++sleep)
-  {
-    world->Step(100);
+  double sleep = 0;
+  double max_sleep = 100;
+  for (; sleep < max_sleep; ++sleep) {
+    pub->publish(msg);
     executor.spin_once(100ms);
-    gazebo::common::Time::MSleep(100);
+    world->Step(100);
   }
-  EXPECT_NE(sleep, maxSleep);
 
   // Check message
   ASSERT_NE(nullptr, latestMsg);
   EXPECT_EQ("odom_frame_test", latestMsg->header.frame_id);
-  EXPECT_LT(0.0, latestMsg->pose.pose.position.x);
-  EXPECT_LT(0.0, latestMsg->pose.pose.orientation.z);
+  EXPECT_LT(-tol, latestMsg->pose.pose.position.x);
+  EXPECT_LT(-tol, latestMsg->pose.pose.orientation.z);
 
   // Check movement
-  EXPECT_LT(0.0, vehicle->WorldPose().Pos().X());
-  EXPECT_LT(0.0, vehicle->WorldPose().Rot().Yaw());
-  EXPECT_NEAR(1.0, vehicle->WorldLinearVel().X(), tol);
-  EXPECT_NEAR(0.1, vehicle->WorldAngularVel().Z(), tol);
+  EXPECT_LT(-tol, tricycle->WorldPose().Pos().X());
+  EXPECT_LT(-tol, tricycle->WorldPose().Rot().Yaw());
+  EXPECT_NEAR(0.5, tricycle->WorldLinearVel().X(), tol);
+  EXPECT_NEAR(0.05, tricycle->WorldAngularVel().Z(), tol);
 }
 
 int main(int argc, char ** argv)

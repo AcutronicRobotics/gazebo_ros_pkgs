@@ -57,7 +57,7 @@ void TestPlugins::TearDown()
 TEST_P(TestPlugins, TestTopicsReceived)
 {
   auto topics = GetParam().topics;
-  auto node = std::make_shared<rclcpp::Node>("my_node");
+  auto node = std::make_shared<rclcpp::Node>("test_topics_received");
   for (auto topic : topics) {
     auto msg = gazebo_ros::get_message_or_timeout<std_msgs::msg::String>(node, topic);
     EXPECT_NE(msg, nullptr) << topic;

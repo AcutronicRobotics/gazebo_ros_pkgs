@@ -36,7 +36,7 @@ Node::SharedPtr Node::Get(sdf::ElementPtr sdf)
   std::string name = "";
   std::string ns = "";
   std::vector<std::string> arguments;
-  std::vector<rclcpp::Parameter> initial_parameters;
+  std::vector<rclcpp::Parameter> parameter_overrides;
 
   // Get the name of the plugin as the name for the node.
   if (!sdf->HasAttribute("name")) {
@@ -71,20 +71,18 @@ Node::SharedPtr Node::Get(sdf::ElementPtr sdf)
     while (parameter_sdf) {
       auto param = sdf_to_ros_parameter(parameter_sdf);
       if (rclcpp::ParameterType::PARAMETER_NOT_SET != param.get_type()) {
-        initial_parameters.push_back(param);
+        parameter_overrides.push_back(param);
       }
       parameter_sdf = parameter_sdf->GetNextElement("parameter");
     }
   }
 
-  // Use default context
-  auto context = rclcpp::contexts::default_context::get_global_default_context();
+  rclcpp::NodeOptions node_options;
+  node_options.arguments(arguments);
+  node_options.parameter_overrides(parameter_overrides);
 
   // Create node with parsed arguments
-  return CreateWithArgs(
-    name, ns,
-    context,
-    arguments, initial_parameters);
+  return CreateWithArgs(name, ns, node_options);
 }
 
 Node::SharedPtr Node::Get()
@@ -92,7 +90,9 @@ Node::SharedPtr Node::Get()
   Node::SharedPtr node = static_node_.lock();
 
   if (!node) {
-    node = CreateWithArgs("gazebo");
+    rclcpp::NodeOptions node_options;
+    node_options.allow_undeclared_parameters(true);
+    node = CreateWithArgs("gazebo", "", node_options);
     static_node_ = node;
   }
 

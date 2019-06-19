@@ -14,10 +14,12 @@ endforeach()
 set(tests
   test_gazebo_ros_diff_drive
   test_gazebo_ros_force
+  test_gazebo_ros_ft_sensor
   test_gazebo_ros_imu_sensor
   test_gazebo_ros_joint_state_publisher
   test_gazebo_ros_p3d
   test_gazebo_ros_ray_sensor
+  test_gazebo_ros_tricycle_drive
 )
 
 if(ENABLE_DISPLAY_TESTS)
@@ -26,6 +28,7 @@ set(tests ${tests}
   # TODO(louise) Test hangs on teardown while destroying 2nd node
   # test_gazebo_ros_camera_distortion
   test_gazebo_ros_camera_triggered
+  test_gazebo_ros_video
 )
 endif()
 
